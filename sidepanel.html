@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoForge: AI Carbon Footprint Sidepanel</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    #app-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    /* OCR Uploader styling */
+    .ocr-dropzone {
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.02);
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      margin-bottom: 20px;
+    }
+    
+    .ocr-dropzone:hover, .ocr-dropzone.dragover {
+      border-color: var(--accent-emerald);
+      background: rgba(16, 185, 129, 0.04);
+    }
+
+    .ocr-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: var(--accent-emerald);
+      display: block;
+    }
+
+    .ocr-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .ocr-status {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* AI Chat Tab specific styles */
+    #chat-tab {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 8px 4px;
+      margin-bottom: 12px;
+      max-height: 380px;
+    }
+
+    .chat-bubble {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+    }
+
+    .chat-bubble.user {
+      align-self: flex-end;
+      background: var(--accent-emerald);
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+
+    .chat-bubble.assistant {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-primary);
+      border: 1px solid var(--panel-border);
+      border-bottom-left-radius: 2px;
+    }
+
+    .chat-input-area {
+      display: flex;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--panel-border);
+    }
+
+    /* Quick settings overlay */
+    #settings-panel {
+      padding: 16px;
+      border-bottom: 1px solid var(--panel-border);
+      background: rgba(15, 23, 42, 0.9);
+      display: none;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Calculations result card */
+    .quick-calc-result {
+      margin-top: 20px;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      background: rgba(16, 185, 129, 0.03);
+    }
+    
+    .calc-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    
+    .calc-row:last-child {
+      border-bottom: none;
+      font-weight: 600;
+    }
+
+    .calc-val {
+      font-family: var(--font-en);
+      font-weight: 500;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-logo">EF</div>
+        <div class="brand-title">EcoForge AI</div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button id="btn-settings" class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px;" title="ตั้งค่า Gemini API Key">⚙️ ตั้งค่า</button>
+        <button id="btn-dashboard" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;">📊 แดชบอร์ด</button>
+      </div>
+    </header>
+
+    <!-- Settings Panel (Gemini API Key) -->
+    <div id="settings-panel">
+      <div class="section-title">
+        <span>⚙️ ตั้งค่าระบบ</span>
+        <button id="btn-close-settings" style="background:none; border:none; color:var(--text-secondary); cursor:pointer;">❌</button>
+      </div>
+      <div class="form-group" style="margin-bottom: 8px;">
+        <label class="form-label" for="api-key-input">Gemini API Key</label>
+        <input type="password" id="api-key-input" class="form-input" placeholder="ใส่ AIzaSy... Key ของคุณ">
+      </div>
+      <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">
+        API Key จะถูกบันทึกไว้อย่างปลอดภัยในเครื่องของคุณเพื่อใช้ในการประมวลผล OCR และคำแนะนำวิเคราะห์ Hotspot
+      </p>
+      <button id="btn-save-settings" class="btn btn-primary" style="width: 100%; padding: 8px 16px; font-size: 13px;">บันทึกตั้งค่า</button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tab-container">
+      <button class="tab-btn active" data-tab="log-tab">📝 บันทึกการผลิต</button>
+      <button class="tab-btn" data-tab="chat-tab">💬 ปรึกษา AI Advisor</button>
+    </div>
+
+    <!-- Main Content Area -->
+    <main>
+      <!-- Log Batch Tab -->
+      <div id="log-tab" class="tab-content active">
+        <!-- OCR AI Uploader -->
+        <div id="ocr-uploader" class="ocr-dropzone">
+          <span class="ocr-icon">📄</span>
+          <p style="font-size: 13px; font-weight: 500; margin-bottom: 2px;">อัปโหลดบิล / รายงานการผลิตด้วย AI</p>
+          <span class="ocr-text">ลากไฟล์รายงานการผลิตหรือรูปมิเตอร์ไฟฟ้ามาวางที่นี่</span>
+          <input type="file" id="ocr-file-input" class="hidden" accept="image/*">
+          <div id="ocr-status-text" class="ocr-status">รองรับไฟล์รูปภาพ PNG, JPG</div>
+        </div>
+
+        <!-- Logging Form -->
+        <div class="glass-card" style="margin-bottom: 20px;">
+          <div class="section-title">🏭 บันทึกข้อมูลล็อตการผลิต</div>
+          
+          <form id="batch-form">
+            <div class="form-group">
+              <label class="form-label" for="input-batch-name">ชื่อล็อต/เลขการทำงาน</label>
+              <input type="text" id="input-batch-name" class="form-input" placeholder="เช่น Lot 69A หรือ ยอดผลิตกะเช้า" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="select-process">กระบวนการผลิต</label>
+              <select id="select-process" class="form-select" required>
+                <option value="injection">การฉีดพลาสติก (Injection Molding)</option>
+                <option value="extrusion">การรีดแผ่น/ท่อพลาสติก (Extrusion)</option>
+                <option value="forming">การขึ้นรูปสุญญากาศ (Thermoforming)</option>
+                <option value="recycling">หลอมผลิตเม็ดรีไซเคิล (Recycling & Pelletizing)</option>
+              </select>
+            </div>
+
+            <!-- MANUFACTURING SPECIFIC FIELDS -->
+            <div id="mfg-fields">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="select-material">ชนิดพลาสติก</label>
+                  <select id="select-material" class="form-select">
+                    <option value="PP">PP (Polypropylene)</option>
+                    <option value="HDPE">HDPE (High Density PE)</option>
+                    <option value="LDPE">LDPE (Low Density PE)</option>
+                    <option value="PVC">PVC (Polyvinyl Chloride)</option>
+                    <option value="PET">PET (Polyethylene Terephthalate)</option>
+                    <option value="ABS">ABS (Engineering Plastic)</option>
+                    <option value="PLA">PLA (Bio-resin)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="input-material-weight">น้ำหนักวัสดุรวม (kg)</label>
+                  <input type="number" id="input-material-weight" class="form-input" min="0" value="100">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="input-recycled-pct">เม็ดรีไซเคิลผสม (%)</label>
+                  <input type="number" id="input-recycled-pct" class="form-input" min="0" max="100" value="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="select-machine">ประเภทเครื่องจักร</label>
+                  <select id="select-machine" class="form-select">
+                    <option value="standard">มาตรฐาน / มาตรฐานทั่วไป</option>
+                    <option value="hydraulic">ไฮดรอลิก (ใช้พลังงานสูง)</option>
+                    <option value="hybrid">ไฮบริด (ประหยัดพลังงาน)</option>
+                    <option value="electric">ไฟฟ้าล้วน (ประหยัดสูงสุด)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="input-electricity">ไฟฟ้าที่ใช้ (kWh)</label>
+                  <input type="number" id="input-electricity" class="form-input" min="0" value="150" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="input-scrap-pct">อัตราเศษของเสีย (%)</label>
+                  <input type="number" id="input-scrap-pct" class="form-input" min="0" max="100" value="2">
+                </div>
+              </div>
+            </div>
+
+            <!-- RECYCLING SPECIFIC FIELDS -->
+            <div id="recycling-fields" class="hidden">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="input-scrap-weight">เศษพลาสติกนำเข้า (kg)</label>
+                  <input type="number" id="input-scrap-weight" class="form-input" min="0" value="1000">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="input-pellets-weight">เม็ดรีไซเคิลผลิตได้ (kg)</label>
+                  <input type="number" id="input-pellets-weight" class="form-input" min="0" value="850">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="input-shredder">ไฟฟ้าเครื่องบด (kWh)</label>
+                  <input type="number" id="input-shredder" class="form-input" min="0" value="80">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="input-washing">ไฟฟ้าเครื่องล้าง/อบ (kWh)</label>
+                  <input type="number" id="input-washing" class="form-input" min="0" value="220">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="input-pelletizer">ไฟฟ้าเครื่องหลอมเม็ด (kWh)</label>
+                  <input type="number" id="input-pelletizer" class="form-input" min="0" value="450">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="input-water">น้ำประปาที่ใช้ล้าง (L)</label>
+                  <input type="number" id="input-water" class="form-input" min="0" value="12000">
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">💾 ประมวลผลและบันทึก</button>
+          </form>
+        </div>
+
+        <!-- Quick Output Card (Hidden initially) -->
+        <div id="quick-result-card" class="glass-card quick-calc-result hidden">
+          <div class="section-title" style="margin-bottom: 8px;">📊 ผลลัพธ์คาร์บอนฟุตพริ้นท์</div>
+          <div class="calc-row">
+            <span>คาร์บอนรวม (Total CF)</span>
+            <span class="calc-val" id="res-total-cf">0.00 kg CO2e</span>
+          </div>
+          <div id="res-row-intensity" class="calc-row">
+            <span>ความเข้มข้นคาร์บอน (Carbon Intensity)</span>
+            <span class="calc-val" id="res-intensity" style="color:var(--accent-emerald);">0.00 kg CO2e/kg</span>
+          </div>
+          <div id="res-row-yield" class="calc-row hidden">
+            <span>อัตราผลผลิต (Recycling Yield)</span>
+            <span class="calc-val" id="res-yield" style="color:var(--accent-emerald);">0.00%</span>
+          </div>
+          <div class="calc-row">
+            <span>ประสิทธิภาพพลังงาน (SEC)</span>
+            <span class="calc-val" id="res-sec">0.00 kWh/kg</span>
+          </div>
+
+          <!-- Hotspots Preview -->
+          <div id="quick-hotspot-area" style="margin-top: 12px; display: none;">
+            <div style="font-size: 12px; font-weight:600; margin-bottom: 6px; color:#fbbf24;">⚠️ จุด Hotspot ที่ตรวจพบ:</div>
+            <div id="quick-hotspots-container" class="hotspot-list">
+              <!-- Dynamically populated -->
+            </div>
+            <button id="btn-consult-hotspots" class="btn btn-secondary" style="width:100%; font-size:11px; padding: 6px 12px; margin-top:10px;">💬 ส่งวิเคราะห์ Action Plan ด้วย AI</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Chat Tab -->
+      <div id="chat-tab" class="tab-content">
+        <div class="glass-card" style="flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 420px; padding: 12px;">
+          <div class="chat-messages" id="chat-messages-container">
+            <div class="chat-bubble assistant">
+              สวัสดีครับคุณ Sorawit ยินดีต้อนรับสู่ **AI Eco-Factory Advisor** 🏭
+              <br><br>
+              ผมคือผู้ช่วยอัจฉริยะวิเคราะห์คาร์บอนฟุตพริ้นท์ในโรงงานพลาสติก คุณสามารถ:
+              <br>• ปรึกษาพารามิเตอร์การผลิตเม็ดรีไซเคิล
+              <br>• สอบถามวิธีแก้ไขจุด Hotspot ที่เกิดขึ้นในไลน์ผลิต
+              <br>• หาวิธีลดค่า SEC หรือพลังงานไฟฟ้า
+              <br><br>พิมพ์สอบถามมาได้เลยครับ!
+            </div>
+          </div>
+          
+          <div class="chat-input-area">
+            <input type="text" id="chat-text-input" class="form-input" style="flex:1;" placeholder="พิมพ์คุยกับ AI Advisor..." autocomplete="off">
+            <button id="btn-chat-send" class="btn btn-primary" style="padding: 10px 16px;">ส่ง</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Loading scripts -->
+  <script src="storage.js"></script>
+  <script src="carbonCalculator.js"></script>
+  <script src="aiService.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
